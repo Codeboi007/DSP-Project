@@ -1,0 +1,14 @@
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Never commit key material or message packages
+*.pem
+*.key
+pico-package-*.json
+keys/

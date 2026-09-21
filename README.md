@@ -6,6 +6,7 @@
 
 ## Table of Contents
 
+0. [Quick Start](#quick-start)
 1. [What is PICO?](#1-what-is-pico)
 2. [Why are we building this?](#2-why-are-we-building-this)
 3. [Main Features](#3-main-features)
@@ -14,6 +15,61 @@
 6. [Example User Workflow](#6-example-user-workflow)
 7. [Planned Technologies](#7-planned-technologies)
 8. [Future Scope](#8-future-scope)
+
+---
+
+## Quick Start
+
+```bash
+python -m venv .venv
+.venv\Scripts\activate            # Windows
+source .venv/bin/activate         # macOS / Linux
+pip install -r requirements.txt
+```
+
+**See the whole thing in one command** - Alice encrypts, Bob decrypts, an
+attacker fails, and the same message falls instantly to a classical cipher:
+
+```bash
+python -m pico.cli demo
+```
+
+**The web console** (themes, live visualisers, agent mode, cryptanalysis):
+
+```bash
+python run.py                     # http://127.0.0.1:8000
+```
+
+**The CLI**, one subcommand per operation:
+
+```bash
+python -m pico.cli encrypt --algo aes -m "Meet me at dawn" -s "tuesday-blue-42" -o note.json
+python -m pico.cli decrypt -f note.json -s "tuesday-blue-42"
+python -m pico.cli keygen  --kind rsa --bits 2048 --out-dir keys --name bob
+python -m pico.cli analyse --algo caesar -c "Xppe xp mj esp zwo mctorp"
+python -m pico.cli agent   'encrypt "meet me at dawn" and send it securely to Bob using RSA'
+python -m pico.cli explain --algo aes
+python -m pico.cli exchange --real
+```
+
+Run `python -m pico.cli --help` for every option, and `pytest` for the test
+suite.
+
+### Project layout
+
+```
+pico/
+  core.py            the routing layer - decides WHAT to call
+  cli.py             the command line interface
+  ciphers/           caesar, playfair, vigenere, aes, rsa, dh
+  keys/derive.py     PBKDF2 / scrypt / HKDF key derivation
+  security/checks.py the warnings engine
+  envelope/          the JSON message package
+  agent/parser.py    plain-English intent parsing (no cryptography)
+  education/         step-by-step explanations and the attack demos
+  web/               FastAPI app, plus the console's HTML, CSS and JS
+tests/               pytest suite
+```
 
 ---
 

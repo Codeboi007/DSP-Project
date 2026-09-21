@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="www">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PICO &mdash; Personalized Interactive Cryptographic Operations</title>
+<meta name="description" content="A cryptography console: encrypt, decrypt, derive keys, break weak ciphers, and watch every step.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/css/pico.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='26' font-size='26'>&#128274;</text></svg>">
+</head>
+<body>
+
+<!-- boot sequence ------------------------------------------------------- -->
+<div class="boot" id="boot">
+  <div class="boot-inner">
+    <pre class="boot-lines" id="bootLines"></pre>
+    <div class="boot-bar"><i id="bootBar"></i></div>
+    <p class="boot-skip">press any key to skip</p>
+  </div>
+</div>
+
+<canvas id="globe-canvas" aria-hidden="true"></canvas>
+<div class="scanlines" aria-hidden="true"></div>
+
+<div class="shell">
+
+  <!-- header ------------------------------------------------------------ -->
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+          <rect x="4" y="10.5" width="16" height="10" rx="2"></rect>
+          <path d="M8 10.5V7a4 4 0 0 1 8 0v3.5"></path>
+          <circle cx="12" cy="15.5" r="1.4" fill="currentColor" stroke="none"></circle>
+        </svg>
+      </div>
+      <div class="brand-text">
+        <h1>PICO</h1>
+        <p>Personalized Interactive Cryptographic Operations</p>
+      </div>
+    </div>
+    <div class="topbar-tools">
+      <div class="swatches" id="swatches" role="group" aria-label="Colour theme">
+        <button class="swatch" data-theme="www" title="Retro Web" aria-pressed="true"></button>
+        <button class="swatch" data-theme="phosphor" title="Phosphor" aria-pressed="false"></button>
+        <button class="swatch" data-theme="amber" title="Amber CRT" aria-pressed="false"></button>
+        <button class="swatch" data-theme="synth" title="Synthwave" aria-pressed="false"></button>
+        <button class="swatch" data-theme="matrix" title="Matrix" aria-pressed="false"></button>
+        <button class="swatch" data-theme="blueprint" title="Blueprint" aria-pressed="false"></button>
+        <button class="swatch" data-theme="paper" title="Paper" aria-pressed="false"></button>
+      </div>
+      <button class="btn ghost tiny" id="crtToggle" aria-pressed="true" title="Scanline overlay">CRT</button>
+      <button class="btn ghost tiny" id="globeToggle" aria-pressed="true" title="Background animation">GLOBE</button>
+      <button class="btn ghost tiny" id="helpBtn" title="Keyboard shortcuts">?</button>
+    </div>
+  </header>
+
+  <!-- tabs --------------------------------------------------------------- -->
+  <nav class="tabs" role="tablist" id="tabs">
+    <button class="tab" role="tab" data-view="encrypt" aria-selected="true">Encrypt <span class="key">1</span></button>
+    <button class="tab" role="tab" data-view="decrypt" aria-selected="false">Decrypt <span class="key">2</span></button>
+    <button class="tab" role="tab" data-view="keys" aria-selected="false">Keys <span class="key">3</span></button>
+    <button class="tab" role="tab" data-view="agent" aria-selected="false">Agent <span class="key">4</span></button>
+    <button class="tab" role="tab" data-view="learn" aria-selected="false">Learn <span class="key">5</span></button>
+    <button class="tab" role="tab" data-view="break" aria-selected="false">Break <span class="key">6</span></button>
+  </nav>
+
+  <!-- ENCRYPT ------------------------------------------------------------ -->
+  <section class="view active" id="view-encrypt" role="tabpanel">
+    <div class="grid side">
+
+      <div class="stack">
+        <div class="panel">
+          <h2 class="panel-title"><span class="idx">01</span> Choose an algorithm</h2>
+          <div class="algo-grid" id="algoGrid"></div>
+          <p class="inline-note" id="algoHint"></p>
+        </div>
+
+        <div class="panel">
+          <h2 class="panel-title"><span class="idx">02</span> Message</h2>
+          <div class="field">
+            <label for="encMessage">Plaintext
+              <span class="muted" id="encCount">0 chars</span>
+            </label>
+            <textarea id="encMessage" placeholder="Meet me by the old bridge at midnight."></textarea>
+          </div>
+          <div class="row">
+            <div class="field" style="margin:0">
+              <label for="encSender">From</label>
+              <input type="text" id="encSender" placeholder="Alice" autocomplete="off">
+            </div>
+            <div class="field" style="margin:0">
+              <label for="encRecipient">To</label>
+              <input type="text" id="encRecipient" placeholder="Bob" autocomplete="off">
+            </div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <h2 class="panel-title"><span class="idx">03</span> Key</h2>
+
+          <div id="classicalKey" class="field">
+            <label for="encKey"><span id="encKeyLabel">Keyword</span></label>
+            <input type="text" id="encKey" placeholder="LEMON" autocomplete="off">
+            <div id="caesarSlider" class="hidden" style="margin-top:10px">
+              <label class="label" for="encShift">Shift <span class="accent" id="shiftValue">3</span></label>
+              <input type="range" id="encShift" min="1" max="25" value="3" style="width:100%">
+            </div>
+            <p class="inline-note" id="keyHint"></p>
+          </div>
+
+          <div id="symmetricKey" class="hidden">
+            <div class="field">
+              <label>Key source</label>
+              <div class="chips" id="keySourceChips">
+                <button class="chip" data-source="password" aria-pressed="true">Password</button>
+                <button class="chip" data-source="phrase" aria-pressed="false">Passphrase</button>
+                <button class="chip" data-source="mobile" aria-pressed="false">Mobile number</button>
+                <button class="chip" data-source="raw" aria-pressed="false">Raw key</button>
+              </div>
+            </div>
+            <div class="field">
+              <label for="encSecret">
+                <span id="secretLabel">Password</span>
+                <button class="btn tiny ghost" id="revealSecret" type="button">show</button>
+              </label>
+              <input type="password" id="encSecret" placeholder="tuesday-blue-42" autocomplete="off">
+              <p class="inline-note">Never sent anywhere but this page's own backend, and never written into the package.</p>
+            </div>
+            <div class="row">
+              <div class="field" style="margin:0">
+                <label for="encKdf">Derivation</label>
+                <select id="encKdf">
+                  <option value="pbkdf2">PBKDF2-SHA256</option>
+                  <option value="scrypt">scrypt</option>
+                  <option value="hkdf">HKDF-SHA256</option>
+                </select>
+              </div>
+              <div class="field" style="margin:0">
+                <label for="encMode">AES mode</label>
+                <select id="encMode">
+                  <option value="gcm">GCM (authenticated)</option>
+                  <option value="cbc">CBC (no integrity)</option>
+                </select>
+              </div>
+              <div class="field" style="margin:0">
+                <label for="encBits">Key size</label>
+                <select id="encBits">
+                  <option value="256">256-bit</option>
+                  <option value="192">192-bit</option>
+                  <option value="128">128-bit</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div id="publicKeyBlock" class="hidden">
+            <div class="field">
+              <label for="encPublicPem">
+                Recipient's public key (PEM)
+                <button class="btn tiny ghost" id="useMyKey" type="button">use my generated key</button>
+              </label>
+              <textarea id="encPublicPem" class="code" placeholder="-----BEGIN PUBLIC KEY-----"></textarea>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="row actions" style="justify-content:space-between">
+            <button class="btn primary" id="encryptBtn">Encrypt &rsaquo;</button>
+            <button class="btn ghost" id="encSample">Load example</button>
+            <button class="btn ghost" id="encClear">Clear</button>
+            <span class="muted" style="font-size:11px">Ctrl+Enter</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="stack">
+        <div class="panel">
+          <h2 class="panel-title">Security check</h2>
+          <div class="meter-head">
+            <span class="meter-verdict" id="meterVerdict">waiting</span>
+            <span class="meter-score" id="meterScore">--/100</span>
+          </div>
+          <div class="meter-track"><div class="meter-fill" id="meterFill"></div></div>
+          <ul class="findings" id="findings"></ul>
+        </div>
+
+        <div class="panel" id="resultPanel" hidden>
+          <h2 class="panel-title">Result</h2>
+          <div class="field">
+            <label>Ciphertext</label>
+            <div class="copy-wrap">
+              <button class="btn tiny ghost" data-copy="#encOut">copy</button>
+              <pre class="out" id="encOut"></pre>
+            </div>
+          </div>
+          <div class="field">
+            <label>Package for the receiver
+              <span class="muted" id="pkgSize"></span>
+            </label>
+            <div class="copy-wrap">
+              <button class="btn tiny ghost" data-copy="#encPkg">copy</button>
+              <pre class="out" id="encPkg"></pre>
+            </div>
+          </div>
+          <div class="row actions">
+            <button class="btn" id="downloadPkg">Download .json</button>
+            <button class="btn ghost" id="sendToDecrypt">Open in Decrypt &rsaquo;</button>
+          </div>
+        </div>
+
+        <div class="panel" id="encExplainPanel" hidden>
+          <h2 class="panel-title">What just happened</h2>
+          <div id="encExplain"></div>
+        </div>
+
+        <div class="panel" id="encVizPanel" hidden>
+          <h2 class="panel-title">Live visualiser</h2>
+          <div class="viz" id="encViz"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- DECRYPT ------------------------------------------------------------ -->
+  <section class="view" id="view-decrypt" role="tabpanel">
+    <div class="grid side">
+      <div class="stack">
+        <div class="panel">
+          <h2 class="panel-title"><span class="idx">01</span> The package</h2>
+          <div class="drop" id="pkgDrop">Drop a <b>.json</b> package here, or click to pick a file</div>
+          <input type="file" id="pkgFile" accept=".json,application/json" class="hidden">
+          <textarea id="decPackage" class="tall code" placeholder='{ "format": "pico-package", ... }'></textarea>
+          <p class="inline-note" id="pkgStatus"></p>
+        </div>
+
+        <div class="panel">
+          <h2 class="panel-title"><span class="idx">02</span> What you know</h2>
+          <div class="field" id="decSecretField">
+            <label for="decSecret">
+              Shared secret
+              <button class="btn tiny ghost" id="revealDecSecret" type="button">show</button>
+            </label>
+            <input type="password" id="decSecret" placeholder="tuesday-blue-42" autocomplete="off">
+          </div>
+          <div class="field hidden" id="decKeyField">
+            <label for="decKey">Cipher keyword</label>
+            <input type="text" id="decKey" placeholder="LEMON" autocomplete="off">
+          </div>
+          <div class="field hidden" id="decPrivateField">
+            <label for="decPrivatePem">
+              Your private key (PEM)
+              <button class="btn tiny ghost" id="useMyPrivate" type="button">use my generated key</button>
+            </label>
+            <textarea id="decPrivatePem" class="code" placeholder="-----BEGIN PRIVATE KEY-----"></textarea>
+          </div>
+          <div class="field">
+            <label for="decVerify">Sender's public key <span class="muted">optional, verifies a signature</span></label>
+            <textarea id="decVerify" class="code" style="min-height:70px" placeholder="-----BEGIN PUBLIC KEY-----"></textarea>
+          </div>
+          <div class="row actions">
+            <button class="btn primary" id="decryptBtn">Decrypt &rsaquo;</button>
+            <button class="btn ghost" id="inspectBtn">Inspect only</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="stack">
+        <div class="panel" id="pkgInfoPanel" hidden>
+          <h2 class="panel-title">Package contents</h2>
+          <dl class="kv" id="pkgInfo"></dl>
+        </div>
+        <div class="panel" id="plainPanel" hidden>
+          <h2 class="panel-title">Plaintext</h2>
+          <div class="copy-wrap">
+            <button class="btn tiny ghost" data-copy="#decOut">copy</button>
+            <pre class="out plain" id="decOut"></pre>
+          </div>
+          <div id="decNotices" class="stack" style="margin-top:12px"></div>
+        </div>
+        <div class="panel" id="decExplainPanel" hidden>
+          <h2 class="panel-title">How it was opened</h2>
+          <div id="decExplain"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- KEYS --------------------------------------------------------------- -->
+  <section class="view" id="view-keys" role="tabpanel">
+    <div class="grid three">
+      <div class="panel">
+        <h2 class="panel-title">Random AES key</h2>
+        <p class="hint">Straight from the operating system CSPRNG. No password behind it, so nothing to guess.</p>
+        <div class="field">
+          <label for="aesKeyBits">Size</label>
+          <select id="aesKeyBits">
+            <option value="256">256-bit</option>
+            <option value="192">192-bit</option>
+            <option value="128">128-bit</option>
+          </select>
+        </div>
+        <button class="btn primary" id="genAesBtn">Generate</button>
+        <div class="copy-wrap" style="margin-top:12px">
+          <pre class="out" id="aesKeyOut"></pre>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2 class="panel-title">RSA key pair</h2>
+        <p class="hint">Share the public half. The private half never leaves you.</p>
+        <div class="field">
+          <label for="rsaBits">Size</label>
+          <select id="rsaBits">
+            <option value="2048">2048-bit</option>
+            <option value="3072">3072-bit</option>
+            <option value="4096">4096-bit (slow)</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="rsaPass">Protect private key <span class="muted">optional</span></label>
+          <input type="password" id="rsaPass" placeholder="passphrase" autocomplete="off">
+        </div>
+        <button class="btn primary" id="genRsaBtn">Generate pair</button>
+        <div id="rsaOut" class="stack" style="margin-top:12px"></div>
+      </div>
+
+      <div class="panel">
+        <h2 class="panel-title">Derive from a secret</h2>
+        <p class="hint">Watch a password become key material. The salt is public; the password is not.</p>
+        <div class="field">
+          <label for="derSecret">Secret</label>
+          <input type="text" id="derSecret" placeholder="tuesday-blue-42" autocomplete="off">
+        </div>
+        <div class="row">
+          <div class="field" style="margin:0">
+            <label for="derKind">Kind</label>
+            <select id="derKind">
+              <option value="password">Password</option>
+              <option value="phrase">Passphrase</option>
+              <option value="mobile">Mobile number</option>
+            </select>
+          </div>
+          <div class="field" style="margin:0">
+            <label for="derKdf">KDF</label>
+            <select id="derKdf">
+              <option value="pbkdf2">PBKDF2</option>
+              <option value="scrypt">scrypt</option>
+              <option value="hkdf">HKDF</option>
+            </select>
+          </div>
+        </div>
+        <button class="btn primary" id="genDerBtn" style="margin-top:12px">Derive</button>
+        <div id="derOut" class="stack" style="margin-top:12px"></div>
+      </div>
+    </div>
+
+    <div class="panel" style="margin-top:16px">
+      <h2 class="panel-title">Diffie-Hellman key exchange</h2>
+      <p class="hint">Two people agree on a shared secret while everyone watches the wire.</p>
+      <div class="row actions" style="margin-bottom:12px">
+        <button class="btn" id="dhToyBtn">Run with small numbers</button>
+        <button class="btn" id="dhRealBtn">Run a real 2048-bit exchange</button>
+      </div>
+      <div id="dhOut"></div>
+    </div>
+  </section>
+
+  <!-- AGENT -------------------------------------------------------------- -->
+  <section class="view" id="view-agent" role="tabpanel">
+    <div class="grid side">
+      <div class="panel">
+        <h2 class="panel-title">Agent mode</h2>
+        <p class="hint">Say what you want in plain English. The agent only decides <em>what</em> to call &mdash; every cryptographic step is still run by the deterministic modules, and nothing happens until you confirm.</p>
+        <div class="chat" id="chat"></div>
+        <div class="suggestions" id="suggestions"></div>
+        <div class="row tight">
+          <input type="text" id="agentInput" placeholder="Encrypt &quot;meet me at dawn&quot; and send it securely to Bob" autocomplete="off" style="flex:1 1 auto">
+          <button class="btn primary" id="agentSend" style="flex:0 0 auto">Send</button>
+        </div>
+      </div>
+      <div class="panel">
+        <h2 class="panel-title">Parsed plan</h2>
+        <div id="agentPlan"><p class="hint">Nothing parsed yet.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- LEARN -------------------------------------------------------------- -->
+  <section class="view" id="view-learn" role="tabpanel">
+    <div class="panel" style="margin-bottom:16px">
+      <div class="chips" id="learnChips">
+        <button class="chip" data-topic="caesar" aria-pressed="true">Caesar</button>
+        <button class="chip" data-topic="vigenere" aria-pressed="false">Vigenere</button>
+        <button class="chip" data-topic="playfair" aria-pressed="false">Playfair</button>
+        <button class="chip" data-topic="aes" aria-pressed="false">AES</button>
+        <button class="chip" data-topic="rsa" aria-pressed="false">RSA</button>
+        <button class="chip" data-topic="dh" aria-pressed="false">Diffie-Hellman</button>
+        <button class="chip" data-topic="kdf" aria-pressed="false">Key derivation</button>
+      </div>
+    </div>
+    <div class="grid side">
+      <div class="panel">
+        <h2 class="panel-title" id="learnTitle">Caesar</h2>
+        <div id="learnBody"></div>
+      </div>
+      <div class="panel">
+        <h2 class="panel-title">Try it</h2>
+        <div class="viz" id="learnViz"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- BREAK -------------------------------------------------------------- -->
+  <section class="view" id="view-break" role="tabpanel">
+    <div class="grid side">
+      <div class="stack">
+        <div class="panel">
+          <h2 class="panel-title">Ciphertext</h2>
+          <p class="hint">Paste an intercepted message. No key required &mdash; that is the point.</p>
+          <textarea id="breakText" class="tall" placeholder="Zvvg zv ol aol vsk iypknl ha tpkupnoa."></textarea>
+          <div class="field" style="margin-top:12px">
+            <label>Assume it is</label>
+            <div class="chips" id="breakChips">
+              <button class="chip" data-algo="caesar" aria-pressed="true">Caesar</button>
+              <button class="chip" data-algo="vigenere" aria-pressed="false">Vigenere</button>
+              <button class="chip" data-algo="aes" aria-pressed="false">AES-256</button>
+            </div>
+          </div>
+          <div class="row actions">
+            <button class="btn primary" id="breakBtn">Run the attack</button>
+            <button class="btn ghost" id="breakSample">Load an intercept</button>
+          </div>
+        </div>
+        <div class="panel" id="freqPanel" hidden>
+          <h2 class="panel-title">Letter frequencies</h2>
+          <div class="histogram" id="histogram"></div>
+          <div class="legend">
+            <span><i style="background:var(--accent)"></i>this ciphertext</span>
+            <span><i style="background:var(--line)"></i>typical English</span>
+          </div>
+        </div>
+      </div>
+      <div class="stack">
+        <div class="panel" id="breakResultPanel" hidden>
+          <h2 class="panel-title">Result</h2>
+          <div id="breakResult"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- status bar --------------------------------------------------------- -->
+  <footer class="statusbar">
+    <span><span class="dot"></span><span id="statusText">ready</span></span>
+    <span id="statusAlgo">aes-256-gcm</span>
+    <span class="sep">PICO v<span id="statusVersion">1.0.0</span></span>
+    <span class="muted">VTU BAD703 &middot; Data Security and Privacy</span>
+  </footer>
+</div>
+
+<div class="toasts" id="toasts" aria-live="polite"></div>
+
+<dialog id="helpDialog">
+  <h2 class="panel-title">Keyboard shortcuts</h2>
+  <table class="help-table">
+    <tr><td><kbd>1</kbd> &hellip; <kbd>6</kbd></td><td>Switch tab</td></tr>
+    <tr><td><kbd>Ctrl</kbd>+<kbd>Enter</kbd></td><td>Run the current panel</td></tr>
+    <tr><td><kbd>T</kbd></td><td>Next colour theme</td></tr>
+    <tr><td><kbd>C</kbd></td><td>Toggle the CRT scanlines</td></tr>
+    <tr><td><kbd>G</kbd></td><td>Toggle the background globe</td></tr>
+    <tr><td><kbd>?</kbd></td><td>This dialog</td></tr>
+    <tr><td><kbd>Esc</kbd></td><td>Close</td></tr>
+  </table>
+  <p class="hint" style="margin-top:14px">Letter keys are ignored while you are typing in a field.</p>
+  <button class="btn" id="helpClose" style="margin-top:6px">Close</button>
+</dialog>
+
+<script src="/static/js/api.js"></script>
+<script src="/static/js/ui.js"></script>
+<script src="/static/js/globe.js"></script>
+<script src="/static/js/viz.js"></script>
+<script src="/static/js/app.js"></script>
+</body>
+</html>
