@@ -15,6 +15,7 @@ import sys
 
 from pico import __version__, core
 from pico.agent import parser as agent
+from pico.agent import wizard
 from pico.ciphers import dh
 from pico.envelope import package as envelope
 
@@ -277,24 +278,48 @@ def cmd_explain(args) -> int:
 
 
 def cmd_agent(args) -> int:
-    request = " ".join(args.request) if args.request else input("What do you want to do? ")
-    plan = agent.parse(request)
-    rule("agent")
-    print("  " + bold(plan["reply"]))
-    print("  confidence: " + str(int(plan["confidence"] * 100)) + "%   route: " +
-          dim(plan.get("route", "-")))
-    if plan.get("notes"):
-        for note in plan["notes"]:
-            print("   " + dim("- " + note))
-    print()
-    for index, step in enumerate(plan.get("plan", []), start=1):
-        print("   " + cyan(str(index) + ".") + " " + step)
-    if plan.get("missing"):
+    # ── Initial request ──────────────────────────────────────────────────
+    if getattr(args, "request", None):
+        request = " ".join(args.request)
+    else:
+        print(cyan(BANNER))
+        print(dim("  ── PICO Agent " + "─" * 52))
         print()
-        print("  " + yellow("Still needed: " + ", ".join(plan["missing"])))
-    print()
-    print("  " + dim(plan.get("disclaimer", "")))
-    return 0
+        print("  " + cyan("◆") + "  " + bold("What would you like to do?") +
+              dim("  (describe it in plain English)"))
+        print()
+        print("  " + dim("Examples:"))
+        for ex in (
+            "encrypt a message using AES",
+            "decrypt this package",
+            "generate an RSA key pair",
+            "crack this Caesar cipher",
+            "explain how RSA works",
+            "run a Diffie-Hellman exchange",
+        ):
+            print("  " + dim("  •  " + ex))
+        print()
+        try:
+            request = input("  " + green("›") + "  ").strip()
+        except (EOFError, KeyboardInterrupt):
+            print()
+            return 130
+
+    if not request:
+        print("  " + yellow("Nothing to do."))
+        return 0
+
+    # ── Parse intent ─────────────────────────────────────────────────────
+    plan = agent.parse(request)
+
+    if not plan.get("ok") or (plan.get("confidence") or 0) < 0.2:
+        print()
+        print("  " + yellow("◆") + "  I didn't quite catch that.")
+        print("  " + dim("Try phrasing it like one of the examples above."))
+        return 1
+
+    # ── Hand off to the interactive wizard ───────────────────────────────
+    return wizard.run(plan)
 
 
 def cmd_exchange(args) -> int:
