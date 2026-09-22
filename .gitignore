@@ -7,8 +7,11 @@ env/
 .coverage
 htmlcov/
 
-# Never commit key material or message packages
+# Never commit key material or message packages.
+# The keys/ folder itself is tracked so it exists on a fresh clone, but
+# everything generated into it stays local.
 *.pem
 *.key
 pico-package-*.json
-keys/
+keys/*
+!keys/README.md
